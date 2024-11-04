@@ -1,0 +1,2 @@
+@node ./gitFetch.mjs %*
+@pause
