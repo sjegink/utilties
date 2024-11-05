@@ -3,25 +3,76 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { promisify } from 'node:util';
 const exec = promisify(_exec);
+const sleep = promisify((ms, callback) => setTimeout(callback, ms));
 
 const IS_WINDOWS = /Win/i.test(os.type());
 const [_nodejsExePath, _scriptPath, ...argv] = process.argv;
 
-if (argv.length === 0) {
-	console.warn(`Please execute with arguments on command-line. Or DRAG-AND-DROP the target folder on it.`);
-} else {
-	argv.forEach(async (dirPath) => {
-		console.info(`PATH: ${dirPath}`);
-		const repoCount = await gitFetch(dirPath);
-		console.info(`- Result: fetch ${repoCount} repository(s)\n`);
-	});
+
+!function run() {
+	if (argv.length === 0) {
+		console.warn(`Please execute with arguments on command-line. Or DRAG-AND-DROP the target folder on it.`);
+	} else {
+		argv.forEach(async (dirPath) => {
+			console.info(`PATH: ${dirPath}`);
+			const repoCount = await runWithLoading(gitFetch(dirPath));
+			console.info(`- Result: fetch ${repoCount} repository(s)\n`);
+		});
+	}
+}();
+
+/**
+ * ## runWithLoading
+ * repeat loadingMessage until task is done.
+ * @async
+ * @param {Promise<T>} promise
+ * @param {number} interval loadingMessage update Interval
+ * @returns {Promise<T>}
+ */
+async function runWithLoading(promise, interval = 200) {
+	const iteratable = _generate(promise);
+	let iterResult;
+	while (iterResult = await iteratable.next()) {
+		if (iterResult.done) break;
+		process.stdout.write(`${iterResult.value}\r`);
+	}
+	return iterResult.value;
+
+	/**
+	 * ## runWithLoading
+	 * await until task is done, or yield loadingMessage.
+	 * @async
+	 * @generator
+	 * @returns {Iterator<Promise<string|T>>}
+	 */
+	async function* _generate() {
+		let spinner = {
+			chars: '─＼│／'.split(''),
+			toString() {
+				let thumb = this.chars.shift();
+				this.chars.push(thumb);
+				return thumb;
+			}
+		}
+		while (true) {
+			const [isDone, result] = await Promise.race([
+				promise.then(result => [true, result]),
+				sleep(interval).then(() => [false]),
+			]);
+			if (isDone) {
+				return result;
+			} else {
+				yield `${spinner}`;
+			}
+		}
+	}
 }
 
 /**
  * # gitFetch
  * If target directory or its subdirectory is .git workcopy, then call `_fetch` for it.
  * @param {string} dirPath target directory known as git workcopy or their parent directory.
- * @returns {number} count of git repository.
+ * @returns {Promise<number>} count of git repository.
  * @see fetch
  */
 export default async function gitFetch(dirPath) {
@@ -71,7 +122,7 @@ async function fetch(dirPath) {
  * ## hasGit
  * If the directory has subdirectory `.git`, then it must be git workcopy, return true.
  * @param {*} dirPath target
- * @return {boolean} It seems git workcopy or not
+ * @return {Promise<boolean>} It seems git workcopy or not
  */
 async function hasGit(dirPath) {
 	return fs.promises.stat(dirPath + '/.git').then(stat => {
