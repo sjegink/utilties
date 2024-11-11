@@ -12,11 +12,11 @@ const [_nodejsExePath, _scriptPath, ...argv] = process.argv;
 	if (argv.length === 0) {
 		console.warn(`Please execute with arguments on command-line. Or DRAG-AND-DROP the target folder on it.`);
 	} else {
-		argv.forEach(async (path) => {
+		argv.reduce((promise, path) => promise.then(async () => {
 			console.info(`PATH: ${path}`);
 			const repoCount = await runWithLoading(wipe(path));
 			console.info(`- Result: remove ${repoCount} file(s)\n`);
-		});
+		}), Promise.resolve());
 	}
 }();
 
