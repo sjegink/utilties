@@ -95,7 +95,10 @@ export async function wipeFolder(dirPath) {
 	for(let fileName of fileNames) {
 		fileCount += await wipe(`${dirPath}/${fileName}`);
 	}
-	await fs.promises.rmdir(dirPath);
+	// remove empty folder
+	const newPath = await getNewPath(dirPath);
+	await fs.promises.rename(dirPath, newPath);
+	await fs.promises.rmdir(newPath);
 	return fileCount;
 }
 
@@ -106,7 +109,34 @@ export async function wipeFolder(dirPath) {
  */
 export async function wipeFile(filePath) {
 	console.info(`Wiping ${filePath}`);
+	const newPath = await getNewPath(filePath);
 	const bin = await fs.promises.readFile(filePath, 'binary');
 	await fs.promises.writeFile(filePath, '\x00'.repeat(bin.length), 'binary');
-	await fs.promises.unlink(filePath);
+	await fs.promises.rename(filePath, newPath);
+	await fs.promises.unlink(newPath);
+}
+
+/**
+ * ## getRandomBytes
+ * @param {string} oldPath
+ * @returns {Promise<string>}
+ */
+async function getNewPath(oldPath) {
+	const parentPath = oldPath.replace(/[^\\\/]+$/, '');
+	const oldName = oldPath.substring(parentPath.length);
+	const len = Math.max(16, parseInt(oldName.length));
+	for (let i = 0; i < 16; i++) {
+		const newName = new Array(len).fill('\0').map(() => {
+			return Math.floor(Math.random() * 36).toString(36);
+		}).join('');
+		const newPath = parentPath + newName;
+		try {
+			await fs.promises.access(newPath);
+		} catch (err) {
+			if (err.code !== 'ENOENT') throw err;
+			return newPath;
+		}
+		return newName;
+	}
+	throw new Error(`Exception on obfuscation of file header!`);
 }
