@@ -4,7 +4,6 @@ import os from 'node:os';
 import { promisify } from 'node:util';
 const sleep = promisify((ms, callback) => setTimeout(callback, ms));
 
-const IS_WINDOWS = /Win/i.test(os.type());
 const [_nodejsExePath, _scriptPath, ...argv] = process.argv;
 
 
@@ -75,7 +74,7 @@ async function runWithLoading(promise, interval = 200) {
  */
 export default async function wipe(path) {
 	const stat = await fs.promises.stat(path);
-	if(stat.isDirectory()) {
+	if (stat.isDirectory()) {
 		return wipeFolder(path);
 	} else {
 		await wipeFile(path)
@@ -92,7 +91,7 @@ export default async function wipe(path) {
 export async function wipeFolder(dirPath) {
 	let fileCount = 0;
 	const fileNames = await fs.promises.readdir(dirPath);
-	for(let fileName of fileNames) {
+	for (let fileName of fileNames) {
 		fileCount += await wipe(`${dirPath}/${fileName}`);
 	}
 	// remove empty folder
