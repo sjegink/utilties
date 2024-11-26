@@ -41,9 +41,10 @@ async function runWithLoading(promise, interval = 200) {
 	 * await until task is done, or yield loadingMessage.
 	 * @async
 	 * @generator
+	 * @param {Promise<T>} promise
 	 * @returns {Iterator<Promise<string|T>>}
 	 */
-	async function* _generate() {
+	async function* _generate(promise) {
 		let spinner = {
 			chars: '─＼│／'.split(''),
 			toString() {
